@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+import sqlite3
+import os
+
+conn = sqlite3.connect('/contrib/projects/sunlab-busy/db')
+c = conn.cursor()
+c.execute("SELECT COUNT(*) from current_sessions")
+current = c.fetchone()[0]
+print("There are currently <= " + str(current) + " people working in the Sunlab")
+
+conn.close()
