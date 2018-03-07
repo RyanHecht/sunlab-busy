@@ -1,11 +1,25 @@
 #!/usr/bin/python3
 import sqlite3
 import os
+import fileinput
+import json
+from dateutil import rrule
+from datetime import datetime, timedelta
 
-conn = sqlite3.connect('/contrib/projects/sunlab-busy/db')
+def parse_time(time):
+    return datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+
+conn = sqlite3.connect('/contrib/projects/sunlab-busy/db', detect_types=sqlite3.PARSE_DECLTYPES)
 c = conn.cursor()
-c.execute("SELECT COUNT(*) from current_sessions")
-current = c.fetchone()[0]
-print("There are currently <= " + str(current) + " people working in the Sunlab")
+c.execute("SELECT user, machine, starttime FROM current_sessions ORDER BY starttime ASC")
+
+current_sessions = c.fetchall()
+
+c.execute("SELECT user, machine, starttime, endtime FROM old_sessions ORDER BY starttime ASC")
+
+old_sessions = c.fetchall()
 
 conn.close()
+
+
+print("There are currently ~" + str(len(current_sessions)) + " people working in the Sunlab")

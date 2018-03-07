@@ -22,10 +22,12 @@ class Session:
     def __endtime(self):
         if self.endtime is None:
             return ""
-
         return self.endtime.strftime("%b %d %H:%M")
     def __str__(self):
         return "User: " + self.user + ", Machine: " + self.machine + ", Starttime: " + self.__starttime()
+
+    def __lt__(self, other):
+        return self.starttime < other.starttime
 
 def today_as_rwho_string():
     now = datetime.datetime.now()
@@ -41,7 +43,7 @@ def get_current_sessions():
 
     sessions = grep.communicate()[0].decode('utf-8').strip().split("\n")
 
-    current_sessions = set()
+    current_sessions = []
     for session in sessions:
         splt = session.split()
         if len(splt) > 0:
@@ -50,9 +52,16 @@ def get_current_sessions():
             splt[3] = "0"+splt[3] if int(splt[3]) < 10 else splt[3]
             started = datetime.datetime.strptime(" ".join(splt[2:5]), "%b %d %H:%M")
             started = started.replace(year=datetime.datetime.now().year)
-            current_sessions.add(Session(name, machine, started))
-        #print(Session(name, machine, started))
-    return current_sessions
+            current_sessions.append(Session(name, machine, started))
+
+    current_sessions.sort()
+
+    for session in current_sessions:
+        this_index = current_sessions.index(session)
+        if (session.machine in map(lambda s: s.machine, current_sessions[this_index + 1:])):
+            current_sessions.remove(session)
+
+    return set(current_sessions)
 
 
 def process_sessions(sessions):
@@ -70,9 +79,11 @@ def process_sessions(sessions):
         (ended_session.user, ended_session.machine, ended_session.starttime, datetime.datetime.now()))
         print("ENDED: " + ended_session.__str__())
     for new_session in sessions - known_sessions:
-        c.execute("INSERT INTO current_sessions (user, machine, starttime) VALUES (?, ?, ?)",
-        (new_session.user, new_session.machine, new_session.starttime))
-        print("BEGAN: " + new_session.__str__())
+        c.execute("SELECT * from old_sessions where user=? AND machine=? AND starttime=?", (new_session.user, new_session.machine, new_session.starttime))
+        if (len(c.fetchall()) == 0):
+            c.execute("INSERT INTO current_sessions (user, machine, starttime) VALUES (?, ?, ?)",
+            (new_session.user, new_session.machine, new_session.starttime))
+            print("BEGAN: " + new_session.__str__())
 
     conn.commit()
     conn.close()
